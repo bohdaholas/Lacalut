@@ -3,7 +3,8 @@ from __future__ import division
 import re
 import sys
 
-from google.cloud import speech
+from google.cloud import speech, texttospeech
+from playsound import playsound
 
 import pyaudio
 from six.moves import queue
@@ -136,6 +137,9 @@ def listen_print_loop(responses):
                 try:
                     if word == TEST_STR.split(' ')[word_ind]:
                         word_ind += 1
+                    else:
+                        synthesize_text(TEST_STR.split(' ')[word_ind])
+                        break
                 except IndexError:
                     break
 
@@ -153,6 +157,37 @@ def listen_print_loop(responses):
                 break
 
             num_chars_printed = 0
+
+
+def synthesize_text(text):
+    """Synthesizes speech from the input string of text."""
+    from google.cloud import texttospeech
+
+    client = texttospeech.TextToSpeechClient()
+
+    input_text = texttospeech.SynthesisInput(text=text)
+
+    # Note: the voice can also be specified by name.
+    # Names of voices can be retrieved with client.list_voices().
+    voice = texttospeech.VoiceSelectionParams(
+        language_code="uk-UA",
+        name="uk-UA-Standard-A",
+        ssml_gender=texttospeech.SsmlVoiceGender.FEMALE,
+    )
+
+    audio_config = texttospeech.AudioConfig(
+        audio_encoding=texttospeech.AudioEncoding.MP3
+    )
+
+    response = client.synthesize_speech(
+        request={"input": input_text, "voice": voice, "audio_config": audio_config}
+    )
+
+    # The response's audio_content is binary.
+    with open("output.mp3", "wb") as out:
+        out.write(response.audio_content)
+
+    playsound("output.mp3")
 
 
 def main():
