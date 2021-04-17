@@ -144,7 +144,6 @@ class Lacalut:
         if len(self.verse) > 380:
             self.verse = self.verse[:380] + "..."
         self.user_verse_preview.config(text=self.verse, fg="#000000")
-
     
     def initialise_custom_verse_window(self):
         if self.custom_verse_available:
