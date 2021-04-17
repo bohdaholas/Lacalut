@@ -1,3 +1,5 @@
+# Anti-Chair
+
 ## Description
 The aim of the project is to make learning poems easier. The user dictates the chosen poem, and the app indentifies mistakes and gives voice hints. The app is written in Python, has a simple GUI and uses Google APIs for speech recognition and text synthesizing.
 
