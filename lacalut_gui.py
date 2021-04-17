@@ -1,12 +1,16 @@
 from __future__ import division
+import time
 from tkinter import *
 from tkinter import scrolledtext  
 from functools import partial
 from tkinter.ttk import Combobox
 from tkinter.ttk import Radiobutton
 
+import random
 import json
 import re
+
+ERROR_MESSAGES = ['Ви помилилися!', 'Помилка', 'Неправильно', 'Чьо це таке']
 
 
 import sys
@@ -25,12 +29,6 @@ CHUNK = int(RATE / 10)
 TEST_STR = 'Думи мої думи мої Лихо мені з вами Нащо стали на папері Сумними рядами Чом вас вітер не розвіяв В степу як пилину Чом вас лихо не приспало Як свою дитину За карії оченята За чорнії брови Серце рвалося сміялось Виливало мову Виливало як уміло За темнії ночі За вишневий сад зелений За ласки дівочі За степи та за могили Що на Україні'.lower()
 
 prev_ind = word_ind = 0
-
-
-
-
-
-
 
 class Lacalut:
     def __init__(self):
@@ -270,13 +268,25 @@ def listen_print_loop(responses, lacalut):
             num_chars_printed = len(transcript)
 
         else:
+            if transcript.strip() == 'кінець':
+                print("Exiting..")
+                return 0
+
             print(transcript + overwrite_chars)
             for word in transcript.strip().lower().split(' '):
                 try:
                     if word == TEST_STR.split(' ')[word_ind]:
                         word_ind += 1
                     else:
-                        synthesize_text(TEST_STR.split(' ')[word_ind])
+                        synthesize_text('Стоп стоп стоп, харе' + random.choice(ERROR_MESSAGES))
+                        if word_ind == 0:
+                            synthesize_text(TEST_STR.split(' ')[word_ind])
+                            # time.sleep(5)
+
+                        else:
+                            synthesize_text(' '.join(TEST_STR.split(' ')[word_ind-1:word_ind+1]))
+                            # time.sleep(5)
+
                         lacalut.indicate_streaming_mistake(word)
                         break
                 except IndexError:
@@ -287,10 +297,6 @@ def listen_print_loop(responses, lacalut):
                 prev_ind = word_ind
             except IndexError:
                 word_ind = 0
-
-            if re.search(r"\b(exit|quit)\b", transcript, re.I):
-                print("Exiting..")
-                break
 
             num_chars_printed = 0
 
