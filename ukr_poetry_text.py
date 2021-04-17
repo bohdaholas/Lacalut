@@ -5,8 +5,8 @@ import json
 
 def read_poetry_db() -> dict:
     with open('poetry_db.json', encoding='utf-8') as json_file:
-        data = json.load(json_file)
-        return data
+        poetry_data = json.load(json_file)
+        return poetry_data
 
 def find_poetry_text(poetry_title: str):
     poetry_data = read_poetry_db()
