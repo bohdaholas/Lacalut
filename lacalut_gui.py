@@ -92,25 +92,16 @@ class Lacalut:
 
     def initialise_last_page_streaming(self):
         self.learning_window = Tk()
-        self.learning_window.geometry('400x300')
+        self.learning_window.geometry('400x200')
         self.learning_window.title("потокове навчання")
 
         self.start_listening_btn = Button(self.learning_window, text= "почати роботу", command= self.start_listening)
         self.start_listening_btn.pack()
 
 
-        self.stop_listening_btn = Button(self.learning_window, text= "зупинити роботу", command= self.stop_listening)
-        self.stop_listening_btn.pack()
-
-
         self.indicator = Label(self.learning_window, text= "почніть говорити коли готові\nробіть паузи в 2-3 секунди між рядками", bg="#64F341", height= 5, width= 35, font=("Arial", 15))
         self.indicator.pack()
 
-        self.test_wrong_btn = Button(self.learning_window, text= "TEST_BTN_WRONG", command = self.indicate_streaming_mistake)
-        self.test_wrong_btn.pack()
-
-        self.test_ok_btn = Button(self.learning_window, text= "TEST_BTN_OK", command = self.indicate_streaming_ok)
-        self.test_ok_btn.pack()
 
         self.learning_window.mainloop()
     
@@ -148,9 +139,10 @@ class Lacalut:
     def submit_verse(self):
         if self.verse == None or self.input.get():
             if self.input.get() in self.newdata:
-                self.verse = self.newdata[self.input.get()]
-        if len(self.verse) > 600:
-            self.verse = self.verse[:600] + "..."
+                self.verse = self.input.get()
+                self.verse = find_poetry_text(self.verse)
+        if len(self.verse) > 380:
+            self.verse = self.verse[:380] + "..."
         self.user_verse_preview.config(text=self.verse, fg="#000000")
 
     
@@ -184,6 +176,33 @@ class Lacalut:
 
     def stop_listening(self):
         self.indicate_streaming_stop()
+
+def find_poetry_text(poetry_title: str):
+    poetry_data = read_poetry_db()
+    link = poetry_data[poetry_title][1:]
+
+    full_name = re.search('.*/', link)[0][0:-1]
+    surname = re.search('[a-z]*', full_name)[0]
+    title = re.search('/.*', link)[0][1:]
+    full_text = requests.get(f'http://ukrlit.org/faily/avtor/{full_name}/{surname}-{title}.txt').text
+
+    poetry_ending = 'Постійна адреса: '
+    beginning = full_text.find(poetry_title)
+    ending = full_text.find(poetry_ending)
+    full_text = full_text[beginning + len(poetry_title) : ending]
+
+    try:
+        odd_char_1 = re.search('\([0-9]*\)', full_text)[0]
+    except TypeError:
+        odd_char_1 = ''
+    
+    try:
+        odd_char_2 = re.search('\[[0-9]*.*\s?.*\]', full_text)[0]
+    except TypeError:
+        odd_char_2 = ''
+
+    return full_text.replace(odd_char_1, '').replace(odd_char_2, '').replace('*', '').strip()
+
 
 
 class MicrophoneStream(object):
@@ -287,7 +306,6 @@ def listen_print_loop(responses, lacalut):
                             synthesize_text(' '.join(TEST_STR.split(' ')[word_ind-1:word_ind+1]))
                             # time.sleep(5)
 
-                        lacalut.indicate_streaming_mistake(word)
                         break
                 except IndexError:
                     break
