@@ -152,10 +152,18 @@ def main():
     language_code = "uk-UA"
 
     client = speech.SpeechClient()
+
+    interaction_type = speech.RecognitionMetadata.InteractionType.DICTATION
+
+    metadata = speech.RecognitionMetadata(
+        interaction_type=interaction_type
+    )
+
     config = speech.RecognitionConfig(
         encoding=speech.RecognitionConfig.AudioEncoding.LINEAR16,
         sample_rate_hertz=RATE,
         language_code=language_code,
+        metadata=metadata,
     )
 
     streaming_config = speech.StreamingRecognitionConfig(
