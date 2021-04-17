@@ -1,3 +1,4 @@
+from __future__ import division
 from tkinter import *
 from tkinter import scrolledtext  
 from functools import partial
@@ -6,6 +7,29 @@ from tkinter.ttk import Radiobutton
 
 import json
 import re
+
+
+import sys
+
+from google.cloud import speech, texttospeech
+from playsound import playsound
+
+import pyaudio
+from six.moves import queue
+
+
+RATE = 16000
+CHUNK = int(RATE / 10)
+
+
+TEST_STR = 'Думи мої думи мої Лихо мені з вами Нащо стали на папері Сумними рядами Чом вас вітер не розвіяв В степу як пилину Чом вас лихо не приспало Як свою дитину За карії оченята За чорнії брови Серце рвалося сміялось Виливало мову Виливало як уміло За темнії ночі За вишневий сад зелений За ласки дівочі За степи та за могили Що на Україні'.lower()
+
+prev_ind = word_ind = 0
+
+
+
+
+
 
 
 class Lacalut:
@@ -20,12 +44,12 @@ class Lacalut:
         self.newdata = {}
         for key in data:
             newkey = re.sub('[“”(</a>)(</A>)]', '', key)
-            self.newdata[newkey] = data[key]
+            self.newdata[newkey] = [data[key][0], data[key][1]]
 
     def initialise_starting_window(self):
         self.starting_window = Tk()
         # self.starting_window.configure(bg = "#63C77C")
-        text = Label(self.starting_window, text= "Please chose the verse OR enter your own")
+        text = Label(self.starting_window, text= "знайдіть вірш за назвою, або введіть власний")
         text.pack()
 
         self.input = Entry(self.starting_window)
@@ -37,21 +61,21 @@ class Lacalut:
         self.lbl = Label(self.starting_window, text="")
         self.lbl.pack()
         
-        self.enter_custom_btn = Button(self.starting_window, text="enter custom verse", bg = "#315EBB", command = self.initialise_custom_verse_window)
+        self.enter_custom_btn = Button(self.starting_window, text="ввести власний вірш", bg = "#315EBB", command = self.initialise_custom_verse_window)
         self.enter_custom_btn.pack()
 
-        self.submit_verse_btn = Button(self.starting_window, text="submit your verse", bg = "#315EBB", command = self.submit_verse)
+        self.submit_verse_btn = Button(self.starting_window, text="підтвердити вірш", bg = "#315EBB", command = self.submit_verse)
         self.submit_verse_btn.pack()
 
-        self.user_verse_preview = Label(self.starting_window, text= "Your verse preview", height= 25)
+        self.user_verse_preview = Label(self.starting_window, text= "*тут буде відображатися прев'ю вашого вірша*", fg="#616264", height= 25)
         self.user_verse_preview.pack()
 
 
         self.selected = IntVar()
 
-        self.rad1 = Radiobutton(self.starting_window, text='stream mode (we will interrupt you on first mistake)', value=1, variable=self.selected)
+        self.rad1 = Radiobutton(self.starting_window, text='режим перевірки в прямому часі', value=1, variable=self.selected)
         self.rad1.pack()  
-        self.rad2 = Radiobutton(self.starting_window, text='post analisys (we will let you know what you said wrong)', value=2, variable=self.selected)
+        self.rad2 = Radiobutton(self.starting_window, text='режим пост аналізу', value=2, variable=self.selected)
         self.rad2.pack()
 
         self.move_to_analisys_btn = Button(self.starting_window, text="proceed to studying", command= self.proceed_with_settings, bg= "#315EBB")
@@ -70,18 +94,24 @@ class Lacalut:
 
     def initialise_last_page_streaming(self):
         self.learning_window = Tk()
-        self.learning_window.geometry('300x300')
+        self.learning_window.geometry('400x300')
+        self.learning_window.title("потокове навчання")
 
-        self.learning_window_msg = Label(self.learning_window, text= "grats")
-        self.learning_window_msg.pack()
+        self.start_listening_btn = Button(self.learning_window, text= "почати роботу", command= self.start_listening)
+        self.start_listening_btn.pack()
 
-        self.indicator = Label(self.learning_window, text= "start talking when ready", bg="#64F341", height= 5, width= 20, font=("Arial", 15))
+
+        self.stop_listening_btn = Button(self.learning_window, text= "зупинити роботу", command= self.stop_listening)
+        self.stop_listening_btn.pack()
+
+
+        self.indicator = Label(self.learning_window, text= "почніть говорити коли готові\nробіть паузи в 2-3 секунди між рядками", bg="#64F341", height= 5, width= 35, font=("Arial", 15))
         self.indicator.pack()
 
-        self.test_wrong_btn = Button(self.learning_window, text= "testWrong", command = self.indicate_streaming_mistake)
+        self.test_wrong_btn = Button(self.learning_window, text= "TEST_BTN_WRONG", command = self.indicate_streaming_mistake)
         self.test_wrong_btn.pack()
 
-        self.test_ok_btn = Button(self.learning_window, text= "testOk", command = self.indicate_streaming_ok)
+        self.test_ok_btn = Button(self.learning_window, text= "TEST_BTN_OK", command = self.indicate_streaming_ok)
         self.test_ok_btn.pack()
 
         self.learning_window.mainloop()
@@ -89,11 +119,12 @@ class Lacalut:
     def initialise_last_page_post_processing(self):
         self.learning_window = Tk()
         self.learning_window.geometry('300x300')
+        self.learning_window.title("пост аналіз")
 
-        self.start_listening_btn = Button(self.learning_window, text= "start listening", command= start_listening)
+        self.start_listening_btn = Button(self.learning_window, text= "start listening", command= self.start_listening)
         self.start_listening_btn.pack()
 
-        self.stop_listening_btn = Button(self.learning_window, text= "stop listening", command= stop_listening)
+        self.stop_listening_btn = Button(self.learning_window, text= "stop listening", command= self.stop_listening)
         self.stop_listening_btn.pack()
 
         self.learning_window_msg = Label(self.learning_window, text= "grats")
@@ -104,11 +135,14 @@ class Lacalut:
 
         self.learning_window.mainloop()
 
-    def indicate_streaming_mistake(self):
-        self.indicator.configure(text= "mistake in line\n{}".format("!!LINE!!"), bg="#FA9D0E")
+    def indicate_streaming_mistake(self, line= "!!LINE!!"):
+        self.indicator.configure(text= "помилка в стрічці\n{}".format(line), bg="#FA9D0E")
 
     def indicate_streaming_ok(self):
-        self.indicator.configure(text= "everything is OK", bg="#64F341")
+        self.indicator.configure(text= "все чудово!", bg="#64F341")
+
+    def indicate_streaming_stop(self):
+        self.indicator.configure(text= "розпізнавання призупинено", bg="#D3FE92")
 
     def print_custom_verse(self):
         print(self.verse)
@@ -119,21 +153,22 @@ class Lacalut:
                 self.verse = self.newdata[self.input.get()]
         if len(self.verse) > 600:
             self.verse = self.verse[:600] + "..."
-        self.user_verse_preview.config(text=self.verse)
+        self.user_verse_preview.config(text=self.verse, fg="#000000")
 
     
     def initialise_custom_verse_window(self):
         if self.custom_verse_available:
             self.custom_verse_available = False
             self.custom_verse_window = Tk()
+            self.custom_verse_window.title("ввід свого вірша")
 
-            self.enter_your_verse = Label(self.custom_verse_window, text= "enter your verse")
+            self.enter_your_verse = Label(self.custom_verse_window, text= "введіть текст вірша")
             self.enter_your_verse.pack()
 
             self.txt = scrolledtext.ScrolledText(self.custom_verse_window, width=40, height=10, bg="#85ABFC")
             self.txt.pack(anchor='center')
             
-            self.submit_btn = Button(self.custom_verse_window, text="submit your verse", bg = "#315EBB", command = self.submit_custom_verse)
+            self.submit_btn = Button(self.custom_verse_window, text="підтвердити вірш", bg = "#315EBB", command = self.submit_custom_verse)
             self.submit_btn.pack()
 
             self.custom_verse_window.mainloop()
@@ -145,13 +180,183 @@ class Lacalut:
         self.custom_verse_available = True
 
 
-def start_listening():
-    pass
+    def start_listening(self):
+        self.indicate_streaming_ok()
+        main(self)
 
-def stop_listening():
-    pass
+    def stop_listening(self):
+        self.indicate_streaming_stop()
 
 
+class MicrophoneStream(object):
+    """Opens a recording stream as a generator yielding the audio chunks."""
+
+    def __init__(self, rate, chunk):
+        self._rate = rate
+        self._chunk = chunk
+
+        self._buff = queue.Queue()
+        self.closed = True
+
+    def __enter__(self):
+        self._audio_interface = pyaudio.PyAudio()
+        self._audio_stream = self._audio_interface.open(
+            format=pyaudio.paInt16,
+            channels=1,
+            rate=self._rate,
+            input=True,
+            frames_per_buffer=self._chunk,
+            stream_callback=self._fill_buffer,
+        )
+
+        self.closed = False
+
+        return self
+
+    def __exit__(self, type, value, traceback):
+        self._audio_stream.stop_stream()
+        self._audio_stream.close()
+        self.closed = True
+        self._buff.put(None)
+        self._audio_interface.terminate()
+
+    def _fill_buffer(self, in_data, frame_count, time_info, status_flags):
+        """Continuously collect data from the audio stream, into the buffer."""
+        self._buff.put(in_data)
+        return None, pyaudio.paContinue
+
+    def generator(self):
+        while not self.closed:
+            chunk = self._buff.get()
+            if chunk is None:
+                return
+            data = [chunk]
+
+            while True:
+                try:
+                    chunk = self._buff.get(block=False)
+                    if chunk is None:
+                        return
+                    data.append(chunk)
+                except queue.Empty:
+                    break
+
+            yield b"".join(data)
+
+
+def listen_print_loop(responses, lacalut):
+    """Iterates through server responses and prints them."""
+    num_chars_printed = 0
+    for response in responses:
+        if not response.results:
+            continue
+
+        result = response.results[0]
+        if not result.alternatives:
+            continue
+
+        transcript = result.alternatives[0].transcript
+
+        overwrite_chars = " " * (num_chars_printed - len(transcript))
+
+        global word_ind
+        global prev_ind
+
+
+        if not result.is_final:
+            sys.stdout.write(transcript + overwrite_chars + "\r")
+            sys.stdout.flush()
+
+            num_chars_printed = len(transcript)
+
+        else:
+            print(transcript + overwrite_chars)
+            for word in transcript.strip().lower().split(' '):
+                try:
+                    if word == TEST_STR.split(' ')[word_ind]:
+                        word_ind += 1
+                    else:
+                        synthesize_text(TEST_STR.split(' ')[word_ind])
+                        lacalut.indicate_streaming_mistake(word)
+                        break
+                except IndexError:
+                    break
+
+            try:
+                print(' '.join(TEST_STR.split(' ')[:word_ind]))
+                prev_ind = word_ind
+            except IndexError:
+                word_ind = 0
+
+            if re.search(r"\b(exit|quit)\b", transcript, re.I):
+                print("Exiting..")
+                break
+
+            num_chars_printed = 0
+
+
+def synthesize_text(text):
+    """Synthesizes speech from the input string of text."""
+    client = texttospeech.TextToSpeechClient()
+
+    input_text = texttospeech.SynthesisInput(text=text)
+
+    voice = texttospeech.VoiceSelectionParams(
+        language_code="uk-UA",
+        name="uk-UA-Standard-A",
+        ssml_gender=texttospeech.SsmlVoiceGender.FEMALE,
+    )
+
+    audio_config = texttospeech.AudioConfig(
+        audio_encoding=texttospeech.AudioEncoding.MP3
+    )
+
+    response = client.synthesize_speech(
+        request={"input": input_text, "voice": voice, "audio_config": audio_config}
+    )
+
+    with open("output.mp3", "wb") as out:
+        out.write(response.audio_content)
+
+    playsound("output.mp3")
+
+
+def main(lacalut):
+    language_code = "uk-UA"
+
+    client = speech.SpeechClient()
+
+    interaction_type = speech.RecognitionMetadata.InteractionType.DICTATION
+
+    metadata = speech.RecognitionMetadata(
+        interaction_type=interaction_type
+    )
+
+    config = speech.RecognitionConfig(
+        encoding=speech.RecognitionConfig.AudioEncoding.LINEAR16,
+        sample_rate_hertz=RATE,
+        language_code=language_code,
+        metadata=metadata,
+    )
+
+    streaming_config = speech.StreamingRecognitionConfig(
+        config=config, interim_results=True
+    )
+
+    with MicrophoneStream(RATE, CHUNK) as stream:
+        audio_generator = stream.generator()
+        requests = (
+            speech.StreamingRecognizeRequest(audio_content=content)
+            for content in audio_generator
+        )
+
+        responses = client.streaming_recognize(streaming_config, requests)
+
+        listen_print_loop(responses, lacalut)
+
+
+lacalut = Lacalut()
 if __name__ == "__main__":
-    main_window = Lacalut()
-    main_window.initialise_starting_window()
+    lacalut.initialise_starting_window()
+
+

@@ -1,5 +1,7 @@
 from __future__ import division
 
+from lacalut_gui import Lacalut
+
 import re
 import sys
 
@@ -11,6 +13,8 @@ from six.moves import queue
 
 RATE = 16000
 CHUNK = int(RATE / 10)
+
+lacalut = Lacalut()
 
 TEST_STR = 'Думи мої думи мої Лихо мені з вами Нащо стали на папері Сумними рядами Чом вас вітер не розвіяв В степу як пилину Чом вас лихо не приспало Як свою дитину За карії оченята За чорнії брови Серце рвалося сміялось Виливало мову Виливало як уміло За темнії ночі За вишневий сад зелений За ласки дівочі За степи та за могили Що на Україні'.lower()
 
@@ -105,6 +109,7 @@ def listen_print_loop(responses):
                         word_ind += 1
                     else:
                         synthesize_text(TEST_STR.split(' ')[word_ind])
+                        Lacalut.indicate_streaming_mistake(word)
                         break
                 except IndexError:
                     break
