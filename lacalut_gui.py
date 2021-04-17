@@ -177,6 +177,11 @@ class Lacalut:
     def stop_listening(self):
         self.indicate_streaming_stop()
 
+def read_poetry_db() -> dict:
+    with open('poetry_db.json', encoding='utf-8') as json_file:
+        poetry_data = json.load(json_file)
+        return poetry_data
+
 def find_poetry_text(poetry_title: str):
     poetry_data = read_poetry_db()
     link = poetry_data[poetry_title][1:]
