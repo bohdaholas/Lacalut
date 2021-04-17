@@ -14,7 +14,39 @@ CHUNK = int(RATE / 10)
 
 TEST_STR = 'Думи мої думи мої Лихо мені з вами Нащо стали на папері Сумними рядами Чом вас вітер не розвіяв В степу як пилину Чом вас лихо не приспало Як свою дитину За карії оченята За чорнії брови Серце рвалося сміялось Виливало мову Виливало як уміло За темнії ночі За вишневий сад зелений За ласки дівочі За степи та за могили Що на Україні'.lower()
 
-prev_ind = word_ind = 0
+
+TEST_LIST = [
+    'Думи мої, думи мої,',
+    'Лихо мені з вами!',
+    'Нащо стали на папері',
+    'Сумними рядами?..',
+    'Чом вас вітер не розвіяв',
+    'В степу, як пилину?',
+    'Чом вас лихо не приспало,',
+    'Як свою дитину?…',
+    'За карії оченята,',
+    'За чорнії брови',
+    'Серце рвалося, сміялось,',
+    'Виливало мову,',
+    'Виливало, як уміло,',
+    'За темнії ночі,',
+    'За вишневий сад зелений,',
+    'За ласки дівочі…',
+    'За степи та за могили,',
+    'Що на Україні']
+
+
+def purify_str(strr: str) -> str:
+    '''
+    This function removes all comas, exclemation points and other punctuation stuff
+    '''
+    return re.sub('[,!?.…–-]', '', strr)
+
+
+
+word_ind = 0
+
+line_ind = 0
 
 
 class MicrophoneStream(object):
@@ -89,7 +121,7 @@ def listen_print_loop(responses):
         overwrite_chars = " " * (num_chars_printed - len(transcript))
 
         global word_ind
-        global prev_ind
+        global line_ind
 
         if not result.is_final:
             sys.stdout.write(transcript + overwrite_chars + "\r")
@@ -97,22 +129,29 @@ def listen_print_loop(responses):
 
             num_chars_printed = len(transcript)
 
+            if len(transcript.split(' ')) == len(TEST_LIST[line_ind].split(' ')):
+                pass
+
         else:
             print(transcript + overwrite_chars)
+            is_right = True
             for word in transcript.strip().lower().split(' '):
+                correct_word = purify_str(TEST_LIST[line_ind].split(' ')[word_ind]).lower()
+                print('comparison:', word, correct_word)
                 try:
-                    if word == TEST_STR.split(' ')[word_ind]:
+                    if word == correct_word:
                         word_ind += 1
                     else:
+                        is_right = False
                         synthesize_text(TEST_STR.split(' ')[word_ind])
                         break
-                except IndexError:
+                except IndexError as err:
+                    print('1!!!: ', err)
                     break
 
-            try:
-                print(' '.join(TEST_STR.split(' ')[:word_ind]))
-                prev_ind = word_ind
-            except IndexError:
+            if is_right:
+                print(TEST_LIST[line_ind])
+                line_ind += 1
                 word_ind = 0
 
             if re.search(r"\b(exit|quit)\b", transcript, re.I):
